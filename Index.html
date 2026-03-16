@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Aphelion: Rigorous L5 VCU Simulator</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #0d0d12;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: #e0e0e0;
+            user-select: none;
+        }
+
+        #webgl-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+        }
+
+        #dashboard-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .panel {
+            background: rgba(15, 15, 20, 0.85);
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            border-radius: 12px;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            pointer-events: auto;
+        }
+
+        #top-hud {
+            display: flex;
+            justify-content: space-between;
+            padding: 20px;
+            height: 120px;
+        }
+
+        #left-telemetry {
+            width: 380px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #right-graphs {
+            width: 450px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .header {
+            font-size: 18px;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header span {
+            color: #00ffcc;
+        }
+
+        .section-title {
+            font-size: 11px;
+            color: #00ffcc;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            border-bottom: 1px solid rgba(0, 255, 204, 0.3);
+            padding-bottom: 4px;
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+        }
+
+        .data-label {
+            color: #8a8a9e;
+        }
+
+        .data-value {
+            color: #ffffff;
+            font-weight: bold;
+            text-align: right;
+            width: 80px;
+        }
+
+        .data-unit {
+            color: #555566;
+            font-size: 10px;
+            width: 40px;
+            text-align: left;
+            padding-left: 5px;
+        }
+
+        #status-banner {
+            width: 100%;
+            text-align: center;
+            padding: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .status-nominal {
+            background: rgba(0, 255, 204, 0.1);
+            color: #00ffcc;
+            border: 1px solid #00ffcc;
+        }
+
+        .status-warning {
+            background: rgba(255, 170, 0, 0.1);
+            color: #ffaa00;
+            border: 1px solid #ffaa00;
+        }
+
+        .status-critical {
+            background: rgba(255, 50, 50, 0.15);
+            color: #ff3333;
+            border: 1px solid #ff3333;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 50, 50, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(255, 50, 50, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 50, 50, 0);
+            }
+        }
+
+        .graph-container {
+            width: 100%;
+            height: 110px;
+            position: relative;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+            border: 1px solid #333;
+        }
+
+        canvas.chart-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        #controls-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 12px 24px;
+            border-radius: 20px;
+            border: 1px solid #444;
+            color: #aaa;
+            font-size: 12px;
+            display: flex;
+            gap: 20px;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        #controls-hint:hover {
+            border-color: #00ffcc;
+        }
+
+        .key {
+            background: #333;
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-weight: bold;
+            border-bottom: 2px solid #111;
+        }
+
+        #environment-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 300px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        input[type=range] {
+            width: 150px;
+            accent-color: #00ffcc;
+        }
+
+        .env-btn {
+            background: #222;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .env-btn:hover {
+            background: #00ffcc;
+            color: #000;
+        }
+
+        .env-btn.active {
+            background: #00ffcc;
+            color: #000;
+            box-shadow: 0 0 10px #00ffcc;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="webgl-container"></div>
+    <div id="dashboard-overlay">
+        <div id="top-hud">
+            <div id="left-telemetry" class="panel">
+                <div class="header">APHELION <span>VCU TELEMETRY</span></div>
+                <div id="status-banner" class="status-nominal">SYS: NOMINAL OPERATION</div>
+                <div class="section-title">Kinematic States</div>
+                <div class="data-row"><span class="data-label">Longitudinal Vel (v_x)</span><span class="data-value"
+                        id="val_vx">0.00</span><span class="data-unit">m/s</span></div>
+                <div class="data-row"><span class="data-label">Lateral Vel (v_y)</span><span class="data-value"
+                        id="val_vy">0.00</span><span class="data-unit">m/s</span></div>
+                <div class="data-row"><span class="data-label">Yaw Rate (γ)</span><span class="data-value"
+                        id="val_yawrate">0.000</span><span class="data-unit">rad/s</span></div>
+                <div class="data-row"><span class="data-label">Sideslip Angle (β)</span><span class="data-value"
+                        id="val_beta">0.000</span><span class="data-unit">rad</span></div>
+                <div class="section-title">Dynamic Load Transfer</div>
+                <div class="data-row"><span class="data-label">Front Axle Load (F_zf)</span><span class="data-value"
+                        id="val_fzf">0.0</span><span class="data-unit">N</span></div>
+                <div class="data-row"><span class="data-label">Rear Left Load (F_zL)</span><span class="data-value"
+                        id="val_fzl">0.0</span><span class="data-unit">N</span></div>
+                <div class="data-row"><span class="data-label">Rear Right Load (F_zR)</span><span class="data-value"
+                        id="val_fzr">0.0</span><span class="data-unit">N</span></div>
+                <div class="section-title">Control Objectives</div>
+                <div class="data-row"><span class="data-label">Driver Req. Torque</span><span class="data-value"
+                        id="val_treq">0.0</span><span class="data-unit">Nm</span></div>
+                <div class="data-row"><span class="data-label">ASMC Yaw Moment</span><span class="data-value"
+                        id="val_mzreq">0.0</span><span class="data-unit">Nm</span></div>
+                <div class="data-row"><span class="data-label">Rollover Index (RI)</span><span class="data-value"
+                        id="val_ri">0.000</span><span class="data-unit"></span></div>
+            </div>
+            <div id="right-graphs" class="panel">
+                <div class="section-title">Yaw Rate Tracking (γ_ref vs γ_actual)</div>
+                <div class="graph-container"><canvas id="chart_yaw" class="chart-canvas"></canvas></div>
+                <div class="section-title">Torque Allocation (T_L vs T_R)</div>
+                <div class="graph-container"><canvas id="chart_torque" class="chart-canvas"></canvas></div>
+                <div class="section-title">Rollover Index Safety Boundary</div>
+                <div class="graph-container"><canvas id="chart_ri" class="chart-canvas"></canvas></div>
+            </div>
+        </div>
+        <div id="environment-panel" class="panel">
+            <div class="section-title" style="padding: 10px;">Simulation Parameters</div>
+            <div style="padding: 0 10px 10px 10px;">
+                <div class="control-group">
+                    <span style="font-size:12px;color:#ccc;">Payload Mass</span>
+                    <input type="range" id="param_mass" min="362" max="766" value="766">
+                    <span id="val_mass_disp"
+                        style="font-size:12px;font-family:monospace;font-weight:bold;width:40px;text-align:right;">766</span>
+                </div>
+                <div class="control-group">
+                    <span style="font-size:12px;color:#ccc;">Road Gradient (°)</span>
+                    <input type="range" id="param_grad" min="-15" max="15" value="0">
+                    <span id="val_grad_disp"
+                        style="font-size:12px;font-family:monospace;font-weight:bold;width:40px;text-align:right;">0</span>
+                </div>
+                <div class="control-group">
+                    <span style="font-size:12px;color:#ccc;">Base Friction (μ)</span>
+                    <input type="range" id="param_mu" min="0.1" max="1.0" step="0.05" value="0.85">
+                    <span id="val_mu_disp"
+                        style="font-size:12px;font-family:monospace;font-weight:bold;width:40px;text-align:right;">0.85</span>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:15px;">
+                    <button id="btn_splitmu" class="env-btn" style="flex:1;">Inject μ-Split Fault</button>
+                    <button id="btn_steerfault" class="env-btn" style="flex:1;">Steering Sensor Fault</button>
+                </div>
+            </div>
+        </div>
+        <div id="controls-hint" onclick="window.focus()">
+            <div><span class="key">W/↑</span> <span class="key">S/↓</span> Accelerate / Brake</div>
+            <div><span class="key">A/←</span> <span class="key">D/→</span> Steer</div>
+            <div style="color:#666;">|</div>
+            <div style="color:#00ffcc;">CLICK HERE TO FOCUS</div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.128.0/build/three.module.js" } }
+</script>
+    <script type="module">
+        import * as THREE from 'three';
+
+        window.focus();
+        document.body.addEventListener('click', () => window.focus());
+
+        // --- MATRIX MATH ---
+        class MathMatrix {
+            constructor(rows, cols, data = null) {
+                this.rows = rows; this.cols = cols;
+                this.data = data ? new Float64Array(data) : new Float64Array(rows * cols);
+            }
+            get(i, j) { return this.data[i * this.cols + j]; }
+            set(i, j, val) { this.data[i * this.cols + j] = val; }
+            add(o) { const r = new MathMatrix(this.rows, this.cols); for (let i = 0; i < this.data.length; i++) r.data[i] = this.data[i] + o.data[i]; return r; }
+            sub(o) { const r = new MathMatrix(this.rows, this.cols); for (let i = 0; i < this.data.length; i++) r.data[i] = this.data[i] - o.data[i]; return r; }
+            mul(o) {
+                if (typeof o === 'number') { const r = new MathMatrix(this.rows, this.cols); for (let i = 0; i < this.data.length; i++) r.data[i] = this.data[i] * o; return r; }
+                const r = new MathMatrix(this.rows, o.cols);
+                for (let i = 0; i < this.rows; i++) for (let j = 0; j < o.cols; j++) { let s = 0; for (let k = 0; k < this.cols; k++) s += this.get(i, k) * o.get(k, j); r.set(i, j, s); }
+                return r;
+            }
+            transpose() { const r = new MathMatrix(this.cols, this.rows); for (let i = 0; i < this.rows; i++) for (let j = 0; j < this.cols; j++) r.set(j, i, this.get(i, j)); return r; }
+            invert2x2() {
+                const det = this.get(0, 0) * this.get(1, 1) - this.get(0, 1) * this.get(1, 0);
+                if (Math.abs(det) < 1e-8) return MathMatrix.identity(2);
+                const inv = new MathMatrix(2, 2), d = 1.0 / det;
+                inv.set(0, 0, this.get(1, 1) * d); inv.set(0, 1, -this.get(0, 1) * d);
+                inv.set(1, 0, -this.get(1, 0) * d); inv.set(1, 1, this.get(0, 0) * d);
+                return inv;
+            }
+            static identity(n) { const r = new MathMatrix(n, n); for (let i = 0; i < n; i++) r.set(i, i, 1); return r; }
+        }
+
+        // --- VEHICLE DYNAMICS (3-DOF Bicycle + Pacejka) ---
+        class VehicleDynamics {
+            constructor() {
+                this.m = 766; this.L = 2.000; this.Tw = 1.150;
+                this.lf = 1.350; this.lr = 0.650; this.hcg = 0.550;
+                this.Iz = 450; this.rw = 0.203; this.g = 9.81;
+                this.maxMotorTorque = 80; this.theta_pitch = 0;
+                this.pacejkaFront = { B: 6.82, C: 1.35, D: 1.00, E: -0.45 };
+                this.pacejkaRear = { B: 7.45, C: 1.48, D: 1.00, E: -0.22 };
+                this.resetState();
+                this.inputs = { delta: 0.0, TL: 0.0, TR: 0.0, throttle: 0 };
+                this.outputs = { ax: 0, ay: 0, alphaF: 0, alphaRL: 0, alphaRR: 0, Fzf: 0, FzL: 0, FzR: 0, RI: 0, muL: 0.85, muR: 0.85 };
+                this.baseMu = 0.85;
+            }
+            resetState() { this.state = { vx: 0.0, vy: 0.0, gamma: 0.0, x: 0.0, z: 0.0, yaw: 0.0 }; }
+
+            computePacejkaForce(alpha, Fz, mu, c) {
+                const D = c.D * mu;
+                return Fz * D * Math.sin(c.C * Math.atan(c.B * alpha - c.E * (c.B * alpha - Math.atan(c.B * alpha))));
+            }
+
+            computeDerivatives(s, i) {
+                const sgn = v => (Math.sign(v) || 1);
+                const safeV = v => Math.max(Math.abs(v), 0.5) * sgn(v);
+                const v_x_safe = safeV(s.vx);
+                const vx_rL = s.vx - (this.Tw / 2) * s.gamma;
+                const vx_rR = s.vx + (this.Tw / 2) * s.gamma;
+                const v_x_rL_safe = safeV(vx_rL);
+                const v_x_rR_safe = safeV(vx_rR);
+
+                const alphaF = i.delta - Math.atan2(s.vy + this.lf * s.gamma, v_x_safe);
+                const alphaRL = -Math.atan2(s.vy - this.lr * s.gamma, v_x_rL_safe);
+                const alphaRR = -Math.atan2(s.vy - this.lr * s.gamma, v_x_rR_safe);
+
+                // Dynamic load transfer
+                const Fzf = (this.m * this.g * this.lr * Math.cos(this.theta_pitch)) / this.L;
+                const FzR_total = (this.m * this.g * this.lf * Math.cos(this.theta_pitch)) / this.L;
+                const ay_est = s.vx * s.gamma;
+                const delta_Fz = (this.m * ay_est * this.hcg / this.Tw) * (this.L / this.lr);
+                const FzL = Math.max(0, FzR_total / 2 - delta_Fz);
+                const FzR = Math.max(0, FzR_total / 2 + delta_Fz);
+
+                // Lateral tire forces (damped at low speed to prevent jitter)
+                const damp = Math.min(1.0, Math.abs(s.vx) / 1.0);
+                const Fyf = this.computePacejkaForce(alphaF, Fzf, this.baseMu, this.pacejkaFront) * damp;
+                const FyL = this.computePacejkaForce(alphaRL, FzL, this.outputs.muL, this.pacejkaRear) * damp;
+                const FyR = this.computePacejkaForce(alphaRR, FzR, this.outputs.muR, this.pacejkaRear) * damp;
+
+                // Longitudinal forces
+                const FxL = i.TL / this.rw;
+                const FxR = i.TR / this.rw;
+                const Fx_aero = 0.5 * 1.225 * 0.8 * 2.5 * s.vx * Math.abs(s.vx);
+                const Fx_grad = this.m * this.g * Math.sin(this.theta_pitch);
+
+                const Fx_rr = 0.02 * this.m * this.g * Math.sign(s.vx); // Rolling resistance
+
+                // 3-DOF EoM
+                const dot_vx = (FxL + FxR - Fyf * Math.sin(i.delta) - Fx_aero - Fx_rr - Fx_grad) / this.m + s.vy * s.gamma;
+                const dot_vy = (Fyf * Math.cos(i.delta) + FyL + FyR) / this.m - s.vx * s.gamma;
+                const dot_gamma = (this.lf * Fyf * Math.cos(i.delta) - this.lr * (FyL + FyR) + (this.Tw / 2) * (FxR - FxL)) / this.Iz;
+                const dot_x = s.vx * Math.cos(s.yaw) - s.vy * Math.sin(s.yaw);
+                const dot_z = -(s.vx * Math.sin(s.yaw) + s.vy * Math.cos(s.yaw));
+                const dot_yaw = s.gamma;
+
+                return {
+                    dot_vx, dot_vy, dot_gamma, dot_x, dot_z, dot_yaw,
+                    extras: { ay: dot_vy + s.vx * s.gamma, ax: dot_vx - s.vy * s.gamma, alphaF, alphaRL, alphaRR, Fzf, FzL, FzR }
+                };
+            }
+
+            stepRK4(dt) {
+                // Sleep state: prevent drift when idle
+                if (Math.abs(this.inputs.throttle) < 0.01 && Math.abs(this.state.vx) < 0.05 && Math.abs(this.state.vy) < 0.05 && Math.abs(this.theta_pitch) < 0.01) {
+                    this.state.vx = 0; this.state.vy = 0; this.state.gamma *= 0.9;
+                    if (Math.abs(this.state.gamma) < 0.001) this.state.gamma = 0;
+                    this.outputs.ax = 0; this.outputs.ay = 0;
+                    return;
+                }
+
+                const step = (s, k, h) => ({
+                    vx: s.vx + h * k.dot_vx, vy: s.vy + h * k.dot_vy,
+                    gamma: s.gamma + h * k.dot_gamma, x: s.x + h * k.dot_x,
+                    z: s.z + h * k.dot_z, yaw: s.yaw + h * k.dot_yaw
+                });
+
+                const k1 = this.computeDerivatives(this.state, this.inputs);
+                const k2 = this.computeDerivatives(step(this.state, k1, 0.5 * dt), this.inputs);
+                const k3 = this.computeDerivatives(step(this.state, k2, 0.5 * dt), this.inputs);
+                const k4 = this.computeDerivatives(step(this.state, k3, dt), this.inputs);
+
+                const avg = (a, b, c, d) => (a + 2 * b + 2 * c + d) / 6;
+                this.state.vx += dt * avg(k1.dot_vx, k2.dot_vx, k3.dot_vx, k4.dot_vx);
+                this.state.vy += dt * avg(k1.dot_vy, k2.dot_vy, k3.dot_vy, k4.dot_vy);
+                this.state.gamma += dt * avg(k1.dot_gamma, k2.dot_gamma, k3.dot_gamma, k4.dot_gamma);
+                this.state.x += dt * avg(k1.dot_x, k2.dot_x, k3.dot_x, k4.dot_x);
+                this.state.z += dt * avg(k1.dot_z, k2.dot_z, k3.dot_z, k4.dot_z);
+                this.state.yaw += dt * avg(k1.dot_yaw, k2.dot_yaw, k3.dot_yaw, k4.dot_yaw);
+
+                // Velocity damping for numerical stability
+                this.state.vy *= 0.999;
+                this.state.gamma *= 0.999;
+
+                // Arena border collision
+                const B = 195;
+                if (Math.abs(this.state.x) > B) { this.state.x = Math.sign(this.state.x) * B; this.state.vx *= -0.3; }
+                if (Math.abs(this.state.z) > B) { this.state.z = Math.sign(this.state.z) * B; this.state.vx *= -0.3; }
+
+                // NaN watchdog
+                if (isNaN(this.state.vx) || isNaN(this.state.vy) || isNaN(this.state.gamma)) {
+                    console.warn("Physics singularity caught. Resetting.");
+                    this.resetState(); return;
+                }
+
+                this.outputs.ax = k1.extras.ax;
+                this.outputs.ay = k1.extras.ay;
+                this.outputs.alphaF = k1.extras.alphaF;
+                this.outputs.alphaRL = k1.extras.alphaRL;
+                this.outputs.alphaRR = k1.extras.alphaRR;
+                this.outputs.Fzf = k1.extras.Fzf;
+                this.outputs.FzL = k1.extras.FzL;
+                this.outputs.FzR = k1.extras.FzR;
+                this.outputs.RI = (2 * this.hcg / this.Tw) * (this.outputs.ay / this.g) * (this.L / this.lr);
+            }
+        }
+
+        // --- EXTENDED KALMAN FILTER ---
+        class ExtendedKalmanFilter {
+            constructor() {
+                this.x = new MathMatrix(3, 1, [0, 0, 0.85]);
+                this.P = new MathMatrix(3, 3, [1, 0, 0, 0, 1, 0, 0, 0, 1]);
+                this.Q = new MathMatrix(3, 3, [0.01, 0, 0, 0, 0.01, 0, 0, 0, 0.001]);
+                this.R = new MathMatrix(2, 2, [0.1, 0, 0, 0.05]);
+                this.H = new MathMatrix(2, 3, [0, 0, 0, 0, 1, 0]);
+            }
+            predictUpdate(dt, vx, delta, Fzf, FzL, FzR, m, lf, lr, Tw, pF, pR) {
+                let vy = this.x.get(0, 0), gamma = this.x.get(1, 0), mu = this.x.get(2, 0);
+                const sf = v => Math.max(Math.abs(v), 1.0) * (Math.sign(v) || 1);
+                const vx_safe = sf(vx), vx_L_safe = sf(vx - (Tw / 2) * gamma), vx_R_safe = sf(vx + (Tw / 2) * gamma);
+                const aF = delta - Math.atan2(vy + lf * gamma, vx_safe);
+                const aRL = -Math.atan2(vy - lr * gamma, vx_L_safe);
+                const aRR = -Math.atan2(vy - lr * gamma, vx_R_safe);
+                const dF = -1 / (vx_safe * (1 + Math.pow((vy + lf * gamma) / vx_safe, 2)));
+                const dRL = -1 / (vx_L_safe * (1 + Math.pow((vy - lr * gamma) / vx_L_safe, 2)));
+                const dRR = -1 / (vx_R_safe * (1 + Math.pow((vy - lr * gamma) / vx_R_safe, 2)));
+                const cF = pF.B * pF.C * pF.D * mu * Fzf, cL = pR.B * pR.C * pR.D * mu * FzL, cR = pR.B * pR.C * pR.D * mu * FzR;
+                const dvy = (cF * dF * Math.cos(delta) + cL * dRL + cR * dRR) / m;
+                const A = new MathMatrix(3, 3, [1 + dt * dvy, dt * (-vx), 0, 0, 1, 0, 0, 0, 1]);
+                const dot_vy = (Math.sin(aF) * Fzf + Math.sin(aRL) * FzL + Math.sin(aRR) * FzR) * mu / m - vx * gamma;
+                const dot_gamma = (lf * Math.sin(aF) * Fzf - lr * Math.sin(aRL) * FzL - lr * Math.sin(aRR) * FzR) * mu / 450;
+                this.x.set(0, 0, vy + dt * dot_vy); this.x.set(1, 0, gamma + dt * dot_gamma);
+                this.P = A.mul(this.P).mul(A.transpose()).add(this.Q);
+            }
+            measurementUpdate(ay_meas, gamma_meas, vx) {
+                const z = new MathMatrix(2, 1, [ay_meas, gamma_meas]);
+                const hx = new MathMatrix(2, 1, [vx * this.x.get(1, 0), this.x.get(1, 0)]);
+                this.H.set(0, 0, 0); this.H.set(0, 1, vx);
+                const y = z.sub(hx);
+                const S = this.H.mul(this.P).mul(this.H.transpose()).add(this.R);
+                const K = this.P.mul(this.H.transpose()).mul(S.invert2x2());
+                this.x = this.x.add(K.mul(y));
+                this.P = MathMatrix.identity(3).sub(K.mul(this.H)).mul(this.P);
+                this.x.set(0, 0, Math.max(-10, Math.min(10, this.x.get(0, 0))));
+                this.x.set(2, 0, Math.max(0.1, Math.min(1.0, this.x.get(2, 0))));
+            }
+        }
+
+        // --- VEHICLE CONTROL UNIT (FIXED ASMC GAINS) ---
+        class VehicleControlUnit {
+            constructor(dyn) {
+                this.dyn = dyn;
+                this.ekf = new ExtendedKalmanFilter();
+                this.K_us = 0.0012;
+                // *** CRITICAL FIX: Gains reduced from k1=200,k2=50,lambda=15 ***
+                // Old gains produced ~150,000 Nm yaw moments; max achievable is ~450 Nm
+                this.asmc = { lambda: 5.0, k1: 1.0, k2: 0.5, phi: 0.2, prev_e: 0, e_dot_filt: 0 };
+                this.status = 0;
+                this.fault_steer = false;
+                this.internalState = { gamma_ref: 0, Mz_req: 0, T_req: 0 };
+            }
+
+            execute(throttle, delta_raw, dt) {
+                let delta = delta_raw;
+                if (this.fault_steer) { delta = 0; this.status = 2; }
+                else { this.status = 0; }
+
+                // Deadband: idle vehicle
+                if (Math.abs(throttle) < 0.01 && Math.abs(delta) < 0.01 && Math.abs(this.dyn.state.vx) < 0.5) {
+                    this.internalState.Mz_req = 0; this.internalState.T_req = 0;
+                    this.dyn.inputs.TL = 0; this.dyn.inputs.TR = 0;
+                    return;
+                }
+
+                const vx = this.dyn.state.vx;
+                const ay_meas = this.dyn.outputs.ay;
+                const gamma_meas = this.dyn.state.gamma;
+
+                this.ekf.predictUpdate(dt, vx, delta, this.dyn.outputs.Fzf, this.dyn.outputs.FzL, this.dyn.outputs.FzR,
+                    this.dyn.m, this.dyn.lf, this.dyn.lr, this.dyn.Tw, this.dyn.pacejkaFront, this.dyn.pacejkaRear);
+                this.ekf.measurementUpdate(ay_meas, gamma_meas, vx);
+
+                const est_mu = this.ekf.x.get(2, 0);
+                this.internalState.T_req = throttle * 2 * this.dyn.maxMotorTorque;
+
+                // Reference yaw rate from kinematic model + friction limit
+                const gamma_kin = (vx / (this.dyn.L * (1 + this.K_us * vx * vx))) * delta;
+                const gamma_lim = (est_mu * this.dyn.g) / Math.max(Math.abs(vx), 0.5);
+                const gamma_ref = Math.sign(gamma_kin) * Math.min(Math.abs(gamma_kin), gamma_lim);
+                this.internalState.gamma_ref = gamma_ref;
+
+                // Rollover prevention override
+                if (Math.abs(this.dyn.outputs.RI) > 0.85) {
+                    this.status = 1;
+                    this.internalState.T_req *= 0.3; // Reduce power instead of cutting completely
+                    this.internalState.Mz_req = this.dyn.outputs.RI > 0 ? -400 : 400;
+                }
+                else if (this.status !== 2) {
+                    // ASMC sliding mode controller
+                    const e_gamma = gamma_meas - gamma_ref;
+                    const e_dot_raw = (e_gamma - this.asmc.prev_e) / Math.max(dt, 0.001);
+                    // Low-pass filter on derivative (alpha=0.3) to suppress jitter
+                    this.asmc.e_dot_filt = 0.3 * e_dot_raw + 0.7 * this.asmc.e_dot_filt;
+                    const e_dot = Math.max(-20, Math.min(20, this.asmc.e_dot_filt));
+                    this.asmc.prev_e = e_gamma;
+
+                    const S = this.asmc.lambda * e_gamma + e_dot;
+                    const sat_S = Math.max(-1, Math.min(1, S / this.asmc.phi));
+                    const Mz = this.dyn.Iz * (-this.asmc.k1 * S - this.asmc.k2 * sat_S);
+                    // Clamp to physically achievable range
+                    this.internalState.Mz_req = Math.max(-500, Math.min(500, Mz));
+                } else {
+                    this.internalState.Mz_req = 0;
+                }
+
+                // Torque allocation
+                const delta_T = (2 * this.dyn.rw * this.internalState.Mz_req) / this.dyn.Tw;
+                let TL = (this.internalState.T_req - delta_T) / 2;
+                let TR = (this.internalState.T_req + delta_T) / 2;
+
+                // Tire-force-limited clamping
+                const Tmax = this.dyn.maxMotorTorque;
+                TL = Math.max(-Tmax, Math.min(Tmax, TL));
+                TR = Math.max(-Tmax, Math.min(Tmax, TR));
+
+                if (this.status === 2) { TL = this.internalState.T_req / 2; TR = this.internalState.T_req / 2; }
+
+                this.dyn.inputs.TL = isNaN(TL) ? 0 : TL;
+                this.dyn.inputs.TR = isNaN(TR) ? 0 : TR;
+            }
+        }
+
+        // --- TELEMETRY CHARTS ---
+        class RealTimeChart {
+            constructor(canvasId, yMin, yMax, color1, color2) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.yMin = yMin; this.yMax = yMax;
+                this.color1 = color1; this.color2 = color2;
+                this.initSize();
+            }
+            initSize() {
+                this.width = Math.max(this.canvas.clientWidth, 400);
+                this.height = Math.max(this.canvas.clientHeight, 100);
+                this.canvas.width = this.width; this.canvas.height = this.height;
+                this.history1 = new Array(this.width).fill(0);
+                this.history2 = new Array(this.width).fill(0);
+                this.history3 = new Array(this.width).fill(0);
+            }
+            push(v1, v2 = 0, v3 = 0) { this.history1.push(v1); this.history1.shift(); this.history2.push(v2); this.history2.shift(); this.history3.push(v3); this.history3.shift(); }
+            draw(drawSec = true, drawTer = false) {
+                this.ctx.clearRect(0, 0, this.width, this.height);
+                this.ctx.strokeStyle = '#333'; this.ctx.lineWidth = 1; this.ctx.beginPath();
+                this.ctx.moveTo(0, this.height / 2); this.ctx.lineTo(this.width, this.height / 2); this.ctx.stroke();
+                const sY = v => this.height - ((v - this.yMin) / (this.yMax - this.yMin)) * this.height;
+                const dL = (h, c, w) => { this.ctx.strokeStyle = c; this.ctx.lineWidth = w; this.ctx.beginPath(); for (let i = 0; i < this.width; i++) { let y = sY(h[i]); i === 0 ? this.ctx.moveTo(i, y) : this.ctx.lineTo(i, y); } this.ctx.stroke(); };
+                if (drawTer) dL(this.history3, '#ff3333', 1);
+                dL(this.history1, this.color1, 2);
+                if (drawSec) dL(this.history2, this.color2, 2);
+            }
+        }
+
+        // --- THREE.JS SCENE ---
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x0d0d12, 0.004);
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById('webgl-container').appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(20, 40, 20); dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048; dirLight.shadow.mapSize.height = 2048;
+        scene.add(dirLight);
+
+        const globalAxes = new THREE.AxesHelper(30);
+        scene.add(globalAxes);
+
+        // Ground texture
+        const cvs = document.createElement('canvas'); cvs.width = 512; cvs.height = 512;
+        const gtx = cvs.getContext('2d'); gtx.fillStyle = '#222'; gtx.fillRect(0, 0, 512, 512);
+        gtx.fillStyle = '#333'; for (let i = 0; i < 5000; i++) { gtx.beginPath(); gtx.arc(Math.random() * 512, Math.random() * 512, Math.random() * 2, 0, 2 * Math.PI); gtx.fill(); }
+        const roadTex = new THREE.CanvasTexture(cvs);
+        roadTex.wrapS = THREE.RepeatWrapping; roadTex.wrapT = THREE.RepeatWrapping; roadTex.repeat.set(200, 200);
+        const plane = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.8 }));
+        plane.rotation.x = -Math.PI / 2; plane.receiveShadow = true; scene.add(plane);
+
+        // Arena walls
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, transparent: true, opacity: 0.2 });
+        [[0, 5, -200, 'x'], [0, 5, 200, 'x'], [-200, 5, 0, 'z'], [200, 5, 0, 'z']].forEach(([x, y, z, ax]) => {
+            const g = ax === 'x' ? new THREE.BoxGeometry(400, 10, 2) : new THREE.BoxGeometry(2, 10, 400);
+            const w = new THREE.Mesh(g, wallMat); w.position.set(x, y, z); scene.add(w);
+        });
+
+        // Ice patches (hidden by default, shown on mu-split)
+        const iceMat = new THREE.MeshStandardMaterial({ color: 0x88ccff, transparent: true, opacity: 0.3, roughness: 0.1 });
+        const icePatch1 = new THREE.Mesh(new THREE.PlaneGeometry(800, 40), iceMat);
+        icePatch1.rotation.x = -Math.PI / 2; icePatch1.position.set(0, 0.05, 50); icePatch1.visible = false; scene.add(icePatch1);
+        const icePatch2 = new THREE.Mesh(new THREE.PlaneGeometry(800, 40), iceMat);
+        icePatch2.rotation.x = -Math.PI / 2; icePatch2.position.set(0, 0.05, -50); icePatch2.visible = false; scene.add(icePatch2);
+
+        const grid = new THREE.GridHelper(400, 40, 0x00ffcc, 0x444444);
+        grid.position.y = 0.01; grid.material.opacity = 0.2; grid.material.transparent = true; scene.add(grid);
+
+        // --- AUTO RICKSHAW MODEL ---
+        const chassisGroup = new THREE.Group(); scene.add(chassisGroup);
+        const localAxes = new THREE.AxesHelper(5); localAxes.position.y = 1.5; chassisGroup.add(localAxes);
+        const cY = 0xFFD700, cG = 0x006600, cB = 0x111111;
+
+        // Chassis body
+        const base = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.15, 1.15), new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.6, roughness: 0.4 }));
+        base.position.set(0.35, 0.3, 0); base.castShadow = true; chassisGroup.add(base);
+        const ylMat = new THREE.MeshStandardMaterial({ color: cY, roughness: 0.6 });
+        const rearLower = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.6, 1.15), ylMat);
+        rearLower.position.set(-0.25, 0.6, 0); rearLower.castShadow = true; chassisGroup.add(rearLower);
+        const grMat = new THREE.MeshStandardMaterial({ color: cG, roughness: 0.5 });
+        const sL = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.7, 0.05), grMat); sL.position.set(-0.25, 1.25, -0.55); chassisGroup.add(sL);
+        const sR = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.7, 0.05), grMat); sR.position.set(-0.25, 1.25, 0.55); chassisGroup.add(sR);
+        const bk = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.35, 1.15), grMat); bk.position.set(-0.825, 0.975, 0); chassisGroup.add(bk);
+        const cowl = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.9), ylMat);
+        cowl.position.set(1.15, 0.6, 0); cowl.rotation.z = -0.1; chassisGroup.add(cowl);
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.05, 1.25), new THREE.MeshStandardMaterial({ color: cB, roughness: 0.9 }));
+        roof.position.set(0.15, 1.625, 0); chassisGroup.add(roof);
+        const pMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const pGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.8);
+        const p1 = new THREE.Mesh(pGeo, pMat); p1.position.set(1.1, 1.2, 0.4); chassisGroup.add(p1);
+        const p2 = new THREE.Mesh(pGeo, pMat); p2.position.set(1.1, 1.2, -0.4); chassisGroup.add(p2);
+        const hl = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.05), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xdddddd }));
+        hl.position.set(1.45, 0.65, 0); hl.rotation.z = Math.PI / 2; chassisGroup.add(hl);
+
+        // Wheels
+        const mkWheel = () => {
+            const g = new THREE.Group();
+            const tGeo = new THREE.CylinderGeometry(0.203, 0.203, 0.12, 32); tGeo.rotateX(Math.PI / 2);
+            g.add(new THREE.Mesh(tGeo, new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 })));
+            const rGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.13, 16); rGeo.rotateX(Math.PI / 2);
+            g.add(new THREE.Mesh(rGeo, new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.8, roughness: 0.3 })));
+            return g;
+        };
+        const wheelL = mkWheel(); wheelL.position.set(-0.65, 0.203, -0.575); chassisGroup.add(wheelL);
+        const wheelR = mkWheel(); wheelR.position.set(-0.65, 0.203, 0.575); chassisGroup.add(wheelR);
+        const steerGroup = new THREE.Group(); steerGroup.position.set(1.35, 0.203, 0);
+        const wheelF = mkWheel(); steerGroup.add(wheelF);
+        const fork = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.8), pMat);
+        fork.position.set(0, 0.4, 0); fork.rotation.z = -0.15; steerGroup.add(fork);
+        chassisGroup.add(steerGroup);
+
+        // --- SIMULATION ---
+        const vehicle = new VehicleDynamics();
+        const vcu = new VehicleControlUnit(vehicle);
+
+        let chartYaw, chartTorque, chartRI;
+        setTimeout(() => {
+            chartYaw = new RealTimeChart('chart_yaw', -1.5, 1.5, '#00ffcc', '#ffffff');
+            chartTorque = new RealTimeChart('chart_torque', -100, 100, '#ff00ff', '#00ccff');
+            chartRI = new RealTimeChart('chart_ri', -1.0, 1.0, '#ff3333', '#555555');
+        }, 200);
+
+        const keys = {};
+        window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+        window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+        let splitMuActive = false;
+        document.getElementById('btn_splitmu').addEventListener('click', function () {
+            splitMuActive = !splitMuActive;
+            this.classList.toggle('active');
+            this.innerText = splitMuActive ? "μ-Split Active (Left Mud)" : "Inject μ-Split Fault";
+            icePatch1.visible = splitMuActive;
+            icePatch2.visible = splitMuActive;
+        });
+        document.getElementById('btn_steerfault').addEventListener('click', function () {
+            vcu.fault_steer = !vcu.fault_steer;
+            this.classList.toggle('active');
+        });
+
+        let lastTime = performance.now();
+        let targetThrottle = 0, targetSteer = 0;
+        const PHYS_DT = 0.005; // Fixed 5ms physics sub-step
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const now = performance.now();
+            let frameDt = Math.min((now - lastTime) / 1000, 0.05);
+            lastTime = now;
+
+            // Live UI params
+            vehicle.m = parseFloat(document.getElementById('param_mass').value);
+            document.getElementById('val_mass_disp').innerText = vehicle.m;
+            vehicle.theta_pitch = parseFloat(document.getElementById('param_grad').value) * Math.PI / 180;
+            document.getElementById('val_grad_disp').innerText = document.getElementById('param_grad').value;
+            vehicle.baseMu = parseFloat(document.getElementById('param_mu').value);
+            document.getElementById('val_mu_disp').innerText = vehicle.baseMu.toFixed(2);
+
+            if (splitMuActive) { vehicle.outputs.muL = 0.2; vehicle.outputs.muR = vehicle.baseMu; }
+            else { vehicle.outputs.muL = vehicle.baseMu; vehicle.outputs.muR = vehicle.baseMu; }
+
+            // Input capture
+            if (keys['w'] || keys['arrowup']) targetThrottle = 1.0;
+            else if (keys['s'] || keys['arrowdown']) targetThrottle = -0.5;
+            else targetThrottle = 0.0;
+
+            if (keys['a'] || keys['arrowleft']) targetSteer = 0.35;
+            else if (keys['d'] || keys['arrowright']) targetSteer = -0.35;
+            else targetSteer = 0.0;
+
+            // Smooth input
+            const throttle = THREE.MathUtils.lerp(vehicle.inputs.throttle || 0, targetThrottle, frameDt * 5);
+            vehicle.inputs.throttle = throttle;
+            const delta = THREE.MathUtils.lerp(vehicle.inputs.delta, targetSteer, frameDt * 8);
+            vehicle.inputs.delta = delta;
+
+            // Fixed-timestep physics sub-stepping
+            let accumulator = frameDt;
+            let steps = 0;
+            while (accumulator >= PHYS_DT && steps < 10) {
+                vcu.execute(throttle, delta, PHYS_DT);
+                vehicle.stepRK4(PHYS_DT);
+                accumulator -= PHYS_DT;
+                steps++;
+            }
+
+            // Update 3D model
+            chassisGroup.position.set(vehicle.state.x, 0, vehicle.state.z);
+            chassisGroup.rotation.y = vehicle.state.yaw;
+            const pitch = vehicle.outputs.ax / vehicle.g * 0.04 - vehicle.theta_pitch;
+            const roll = vehicle.outputs.ay / vehicle.g * 0.08;
+            chassisGroup.rotation.z = THREE.MathUtils.lerp(chassisGroup.rotation.z, pitch, 0.1);
+            chassisGroup.rotation.x = THREE.MathUtils.lerp(chassisGroup.rotation.x, roll, 0.1);
+            steerGroup.rotation.y = vehicle.inputs.delta;
+
+            const wrs = vehicle.state.vx / vehicle.rw;
+            wheelL.rotation.z -= wrs * frameDt;
+            wheelR.rotation.z -= wrs * frameDt;
+            wheelF.rotation.z -= wrs * frameDt;
+
+            // FIXED: Camera lookAt rotates with vehicle yaw
+            const camOffset = new THREE.Vector3(-8, 5, 0);
+            camOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), vehicle.state.yaw);
+            camera.position.lerp(chassisGroup.position.clone().add(camOffset), 0.15);
+            const lookTarget = new THREE.Vector3(3, 1, 0);
+            lookTarget.applyAxisAngle(new THREE.Vector3(0, 1, 0), vehicle.state.yaw);
+            camera.lookAt(chassisGroup.position.clone().add(lookTarget));
+
+            // Update telemetry HUD
+            document.getElementById('val_vx').innerText = vehicle.state.vx.toFixed(2);
+            document.getElementById('val_vy').innerText = vehicle.state.vy.toFixed(2);
+            document.getElementById('val_yawrate').innerText = vehicle.state.gamma.toFixed(3);
+            document.getElementById('val_beta').innerText = Math.atan2(vehicle.state.vy, Math.max(0.1, vehicle.state.vx)).toFixed(3);
+            document.getElementById('val_fzf').innerText = vehicle.outputs.Fzf.toFixed(0);
+            document.getElementById('val_fzl').innerText = vehicle.outputs.FzL.toFixed(0);
+            document.getElementById('val_fzr').innerText = vehicle.outputs.FzR.toFixed(0);
+            document.getElementById('val_treq').innerText = vcu.internalState.T_req.toFixed(1);
+            document.getElementById('val_mzreq').innerText = vcu.internalState.Mz_req.toFixed(1);
+            document.getElementById('val_ri').innerText = vehicle.outputs.RI.toFixed(3);
+
+            const banner = document.getElementById('status-banner');
+            if (vcu.status === 1) { banner.className = 'status-critical'; banner.innerText = 'OVERRIDE: ACTIVE ROLLOVER PREVENTION'; }
+            else if (vcu.status === 2) { banner.className = 'status-warning'; banner.innerText = 'DEGRADED: STEERING SENSOR FAULT. SYMMETRIC DRIVE.'; }
+            else if (splitMuActive && Math.abs(vehicle.inputs.TL - vehicle.inputs.TR) > 5) { banner.className = 'status-warning'; banner.innerText = 'ACTIVE TORQUE VECTORING: M-SPLIT COMPENSATION'; }
+            else { banner.className = 'status-nominal'; banner.innerText = 'SYS: NOMINAL OPERATION'; }
+
+            if (chartYaw) {
+                chartYaw.push(vehicle.state.gamma, vcu.internalState.gamma_ref); chartYaw.draw();
+                chartTorque.push(vehicle.inputs.TL, vehicle.inputs.TR); chartTorque.draw();
+                chartRI.push(vehicle.outputs.RI, 0.85, -0.85); chartRI.draw(false, true);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            if (chartYaw) chartYaw.initSize();
+            if (chartTorque) chartTorque.initSize();
+            if (chartRI) chartRI.initSize();
+        });
+
+        animate();
+    </script>
+</body>
+
+</html>

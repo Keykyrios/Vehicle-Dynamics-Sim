@@ -1,0 +1,391 @@
+/*
+ * ═══════════════════════════════════════════════════════════════
+ * NEXUS L5 — ML Intelligence Panel Styles
+ * Integrated into the existing right panel with tab selector.
+ * NO fixed overlays — lives inside #right-charts flow.
+ * ═══════════════════════════════════════════════════════════════
+ */
+
+/* ── Panel Header with Dropdown ── */
+.right-panel-header {
+    margin-bottom: 10px;
+}
+
+.panel-selector {
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(0, 255, 204, 0.25);
+    border-radius: 6px;
+    color: #fff;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2300ffcc'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    transition: border-color 0.2s ease;
+    pointer-events: auto;
+}
+
+.panel-selector:hover,
+.panel-selector:focus {
+    border-color: rgba(0, 255, 204, 0.5);
+    outline: none;
+}
+
+.panel-selector option {
+    background: #0a0a10;
+    color: #fff;
+    padding: 8px;
+}
+
+/* ── Tab Visibility ── */
+.right-tab {
+    display: none;
+}
+
+.right-tab.active-tab {
+    display: block;
+}
+
+/* ── ML Tab Content — scrollable when needed ── */
+#tab-ml {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(140, 80, 255, 0.2) transparent;
+}
+
+#tab-ml::-webkit-scrollbar {
+    width: 4px;
+}
+
+#tab-ml::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#tab-ml::-webkit-scrollbar-thumb {
+    background: rgba(140, 80, 255, 0.25);
+    border-radius: 2px;
+}
+
+/* ── Composite Scores Row ── */
+.ml-scores-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(140, 80, 255, 0.08);
+}
+
+.ml-score-ring-container {
+    position: relative;
+    width: 70px;
+    height: 70px;
+    flex-shrink: 0;
+}
+
+.ml-ring-svg {
+    width: 70px;
+    height: 70px;
+    transform: rotate(-90deg);
+}
+
+.ml-ring-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.06);
+    stroke-width: 5;
+}
+
+.ml-ring-fg {
+    fill: none;
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-dasharray: 226.2;
+    stroke-dashoffset: 226.2;
+    transition: stroke-dashoffset 0.4s ease, stroke 0.4s ease;
+}
+
+.ml-ring-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    line-height: 1;
+}
+
+.ml-ring-value {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+.ml-ring-name {
+    display: block;
+    font-size: 7px;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 1px;
+    margin-top: 2px;
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.ml-score-bar-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* ── Section ── */
+.ml-section {
+    margin-bottom: 8px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.015);
+    border: 1px solid rgba(140, 80, 255, 0.08);
+    border-radius: 8px;
+}
+
+.ml-section-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(191, 90, 242, 0.8);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(140, 80, 255, 0.06);
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.ml-icon {
+    font-size: 14px;
+    color: #bf5af2;
+    text-shadow: 0 0 10px rgba(191, 90, 242, 0.3);
+}
+
+/* ── Data Grid ── */
+.ml-data-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px 10px;
+    margin-bottom: 6px;
+}
+
+.ml-data-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 2px 0;
+}
+
+.ml-data-label {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 0.3px;
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.ml-data-value {
+    font-size: 10px;
+    font-weight: 600;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+/* ── Metric Bars ── */
+.ml-metric-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0;
+}
+
+.ml-bar-label {
+    font-size: 8px;
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    min-width: 60px;
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.ml-bar-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.ml-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease, background 0.3s ease;
+    width: 0%;
+}
+
+.ml-bar-safe {
+    background: linear-gradient(90deg, #30d158, #34c759);
+    box-shadow: 0 0 6px rgba(48, 209, 88, 0.2);
+}
+
+.ml-bar-warn {
+    background: linear-gradient(90deg, #ffd60a, #ff9f0a);
+    box-shadow: 0 0 6px rgba(255, 214, 10, 0.2);
+}
+
+.ml-bar-danger {
+    background: linear-gradient(90deg, #ff453a, #ff3b30);
+    box-shadow: 0 0 6px rgba(255, 69, 58, 0.2);
+}
+
+.ml-bar-intel {
+    background: linear-gradient(90deg, #5e5ce6, #bf5af2);
+    box-shadow: 0 0 6px rgba(191, 90, 242, 0.2);
+}
+
+.ml-bar-value {
+    font-size: 9px;
+    font-weight: 600;
+    color: #fff;
+    min-width: 35px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+/* ── Friction Circles ── */
+.ml-friction-circles {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 4px 0;
+}
+
+.ml-friction-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* ── Anomaly Indicator ── */
+.ml-anomaly-clear {
+    font-size: 9px;
+    color: rgba(48, 209, 88, 0.7);
+    padding: 3px 0;
+    letter-spacing: 0.5px;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+.ml-anomaly-active {
+    font-size: 9px;
+    font-weight: 700;
+    color: #ff453a;
+    padding: 3px 6px;
+    background: rgba(255, 69, 58, 0.08);
+    border: 1px solid rgba(255, 69, 58, 0.2);
+    border-radius: 4px;
+    animation: ml-anomaly-blink 0.8s ease-in-out infinite;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+@keyframes ml-anomaly-blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* ── Charts ── */
+.ml-chart-container {
+    position: relative;
+    width: 100%;
+    height: 50px;
+    margin-top: 4px;
+    border: 1px solid rgba(140, 80, 255, 0.06);
+    border-radius: 4px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.ml-chart-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.ml-chart-label {
+    position: absolute;
+    bottom: 2px;
+    right: 4px;
+    font-size: 7px;
+    color: rgba(255, 255, 255, 0.3);
+    letter-spacing: 0.5px;
+    pointer-events: none;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+/* ── Performance Row ── */
+.ml-perf-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0 2px;
+    border-top: 1px solid rgba(140, 80, 255, 0.06);
+    margin-top: 4px;
+}
+
+.ml-perf-label {
+    font-size: 8px;
+    color: rgba(255, 255, 255, 0.25);
+    letter-spacing: 0.5px;
+    font-family: 'Rajdhani', sans-serif;
+}
+
+.ml-perf-value {
+    font-size: 9px;
+    color: rgba(191, 90, 242, 0.6);
+    font-variant-numeric: tabular-nums;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+/* ── Manifold Optimization Tab ── */
+.manifold-container {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    /* Adjusted height for the separated section */
+    background: #0a0a10;
+    border: 1px solid rgba(255, 0, 255, 0.2);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 5px;
+}
+
+#manifold-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}

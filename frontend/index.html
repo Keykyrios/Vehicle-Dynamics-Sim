@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Aphelion — L5 VCU Real-Time 3D Simulator</title>
+    <meta name="description"
+        content="World-class 3D simulation of NEXUS L5 electric auto-rickshaw VCU with Pacejka tires, EKF, ASMC, and QP torque allocation">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/ml_panel.css">
+    <link rel="stylesheet" href="css/pqc_panel.css">
+</head>
+
+<body>
+    <!-- WebGL 3D Canvas -->
+    <div id="webgl-container"></div>
+
+    <!-- WebSocket Connection Status -->
+    <div id="ws-status" class="ws-connecting">⟳ CONNECTING TO PHYSICS ENGINE...</div>
+
+    <!-- Dashboard Overlay -->
+    <div id="dashboard-overlay">
+        <!-- Top HUD -->
+        <div id="top-hud">
+            <!-- Left: Telemetry -->
+            <div id="left-telemetry" class="panel">
+                <div class="header">
+                    <div class="dot"></div>
+                    APHELION <span>VCU TELEMETRY</span>
+                </div>
+                <div id="status-banner" class="status-nominal">SYS: NOMINAL OPERATION</div>
+
+                <div class="section-title">Kinematic States</div>
+                <div class="data-row"><span class="data-label">Longitudinal Vel (vₓ)</span><span class="data-value"
+                        id="val_vx">0.00</span><span class="data-unit">m/s</span></div>
+                <div class="data-row"><span class="data-label">Lateral Vel (vᵧ)</span><span class="data-value"
+                        id="val_vy">0.00</span><span class="data-unit">m/s</span></div>
+                <div class="data-row"><span class="data-label">Yaw Rate (γ)</span><span class="data-value"
+                        id="val_yawrate">0.000</span><span class="data-unit">rad/s</span></div>
+                <div class="data-row"><span class="data-label">Sideslip Angle (β)</span><span class="data-value"
+                        id="val_beta">0.000</span><span class="data-unit">rad</span></div>
+
+                <div class="section-title">Dynamic Load Transfer</div>
+                <div class="data-row"><span class="data-label">Front Axle (F_zf)</span><span class="data-value"
+                        id="val_fzf">0</span><span class="data-unit">N</span></div>
+                <div class="data-row"><span class="data-label">Rear Left (F_zL)</span><span class="data-value"
+                        id="val_fzl">0</span><span class="data-unit">N</span></div>
+                <div class="data-row"><span class="data-label">Rear Right (F_zR)</span><span class="data-value"
+                        id="val_fzr">0</span><span class="data-unit">N</span></div>
+
+                <div class="section-title">Control Objectives</div>
+                <div class="data-row"><span class="data-label">Driver Req. Torque</span><span class="data-value"
+                        id="val_treq">0.0</span><span class="data-unit">Nm</span></div>
+                <div class="data-row"><span class="data-label">ASMC Yaw Moment</span><span class="data-value"
+                        id="val_mzreq">0.0</span><span class="data-unit">Nm</span></div>
+                <div class="data-row"><span class="data-label">Rollover Index (RI)</span><span class="data-value"
+                        id="val_ri">0.000</span><span class="data-unit"></span></div>
+                <div class="data-row"><span class="data-label">EKF Friction (μ̂)</span><span class="data-value"
+                        id="val_mu_est">0.850</span><span class="data-unit"></span></div>
+
+                <div class="section-title">Torque Allocation</div>
+                <div class="torque-bars">
+                    <div class="torque-bar-container">
+                        <div class="torque-bar-label">T_L: <span id="val_tl">0.0</span> Nm</div>
+                        <div class="torque-bar-track">
+                            <div class="torque-bar-fill-left" id="bar_tl"></div>
+                        </div>
+                    </div>
+                    <div class="torque-bar-container">
+                        <div class="torque-bar-label">T_R: <span id="val_tr">0.0</span> Nm</div>
+                        <div class="torque-bar-track">
+                            <div class="torque-bar-fill-right" id="bar_tr"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center: Speed -->
+            <div id="speed-display" class="panel">
+                <div class="speed-value" id="speed-number">0</div>
+                <div class="speed-unit">km/h</div>
+                <div class="speed-bar">
+                    <div class="speed-bar-fill" id="speed-bar-fill"></div>
+                </div>
+            </div>
+
+            <!-- Right: Tabbed Panel (Charts / ML Intelligence) -->
+            <div id="right-charts" class="panel">
+                <!-- Dropdown Selector -->
+                <div class="right-panel-header">
+                    <select id="tab-selector" class="panel-selector">
+                        <option value="tab-charts">📊 VCU Charts</option>
+                        <option value="tab-ml">🧠 ML Intelligence</option>
+                        <option value="tab-manifold">🌌 Manifold Opt</option>
+                        <option value="tab-pqc">🔐 PQC Security</option>
+                    </select>
+                </div>
+
+                <!-- Tab: VCU Charts -->
+                <div id="tab-charts" class="right-tab active-tab">
+                    <div class="section-title">Yaw Rate Tracking (γ_ref vs γ_actual)</div>
+                    <div class="graph-container">
+                        <canvas id="chart_yaw" class="chart-canvas"></canvas>
+                        <div class="chart-label">RAD/S</div>
+                    </div>
+                    <div class="section-title">Torque Allocation (T_L vs T_R)</div>
+                    <div class="graph-container">
+                        <canvas id="chart_torque" class="chart-canvas"></canvas>
+                        <div class="chart-label">Nm</div>
+                    </div>
+                    <div class="section-title">Rollover Index Safety Boundary</div>
+                    <div class="graph-container">
+                        <canvas id="chart_ri" class="chart-canvas"></canvas>
+                        <div class="chart-label">RI</div>
+                    </div>
+                </div>
+
+                <!-- Tab: ML Intelligence -->
+                <div id="tab-ml" class="right-tab" style="display:none;">
+                    <!-- Composite Scores -->
+                    <div class="ml-scores-row">
+                        <div class="ml-score-ring-container">
+                            <svg class="ml-ring-svg" viewBox="0 0 80 80">
+                                <circle class="ml-ring-bg" cx="40" cy="40" r="36" />
+                                <circle class="ml-ring-fg" id="ml-safety-ring" cx="40" cy="40" r="36"
+                                    style="stroke: #30d158;" />
+                            </svg>
+                            <div class="ml-ring-label">
+                                <span class="ml-ring-value" id="ml-safety-value">—</span>
+                                <span class="ml-ring-name">SAFETY</span>
+                            </div>
+                        </div>
+                        <div class="ml-score-ring-container">
+                            <svg class="ml-ring-svg" viewBox="0 0 80 80">
+                                <circle class="ml-ring-bg" cx="40" cy="40" r="36" />
+                                <circle class="ml-ring-fg" id="ml-efficiency-ring" cx="40" cy="40" r="36"
+                                    style="stroke: #00ccff;" />
+                            </svg>
+                            <div class="ml-ring-label">
+                                <span class="ml-ring-value" id="ml-efficiency-value">—</span>
+                                <span class="ml-ring-name">EFFICIENCY</span>
+                            </div>
+                        </div>
+                        <div class="ml-score-bar-container">
+                            <span class="ml-bar-label">INTELLIGENCE</span>
+                            <div class="ml-bar-track">
+                                <div class="ml-bar-fill ml-bar-intel" id="ml-intelligence-bar"></div>
+                            </div>
+                            <span class="ml-bar-value" id="ml-intelligence-value">—</span>
+                        </div>
+                    </div>
+
+                    <!-- Lyapunov NN -->
+                    <div class="ml-section">
+                        <div class="ml-section-header">
+                            <span class="ml-icon">𝓛</span>
+                            <span>LYAPUNOV STABILITY NETWORK</span>
+                        </div>
+                        <div class="ml-data-grid">
+                            <div class="ml-data-item"><span class="ml-data-label">V(x)</span><span class="ml-data-value"
+                                    id="ml-lyap-V">0.000</span></div>
+                            <div class="ml-data-item"><span class="ml-data-label">V̇(x)</span><span
+                                    class="ml-data-value" id="ml-lyap-Vdot">0.000</span></div>
+                            <div class="ml-data-item"><span class="ml-data-label">Stability</span><span
+                                    class="ml-data-value" id="ml-stability-margin">—</span></div>
+                            <div class="ml-data-item"><span class="ml-data-label">RoA</span><span class="ml-data-value"
+                                    id="ml-roa">—</span></div>
+                            <div class="ml-data-item"><span class="ml-data-label">Gain Adapt</span><span
+                                    class="ml-data-value" id="ml-gain-mult">1.00×</span></div>
+                        </div>
+                        <div class="ml-metric-bar-row">
+                            <span class="ml-bar-label">Stability Margin</span>
+                            <div class="ml-bar-track">
+                                <div class="ml-bar-fill ml-bar-safe" id="ml-stability-bar"></div>
+                            </div>
+                        </div>
+                        <div class="ml-chart-container"><canvas id="chart_ml_lyapunov" class="ml-chart-canvas"></canvas>
+                            <div class="ml-chart-label">V(x) <span style="color:#ff453a">V̇(x)</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Hamiltonian NN -->
+                    <div class="ml-section">
+                        <div class="ml-section-header">
+                            <span class="ml-icon">ℋ</span>
+                            <span>HAMILTONIAN ENERGY NETWORK</span>
+                        </div>
+                        <div class="ml-data-grid">
+                            <div class="ml-data-item"><span class="ml-data-label">Kinetic</span><span
+                                    class="ml-data-value" id="ml-energy-kinetic">0 kJ</span></div>
+                            <div class="ml-data-item"><span class="ml-data-label">Total</span><span
+                                    class="ml-data-value" id="ml-energy-total">0 kJ</span></div>
+                            <div class="ml-data-item"><span class="ml-data-label">Input Power</span><span
+                                    class="ml-data-value" id="ml-input-power">0 W</span></div>
+                            <div class="ml-data-item"><span class="ml-data-label">Dissipation</span><span
+                                    class="ml-data-value" id="ml-dissipation">0 W</span></div>
+                        </div>
+                        <div class="ml-metric-bar-row">
+                            <span class="ml-bar-label">Powertrain η</span>
+                            <div class="ml-bar-track">
+                                <div class="ml-bar-fill ml-bar-safe" id="ml-efficiency-bar"></div>
+                            </div>
+                            <span class="ml-bar-value" id="ml-powertrain-eff">—</span>
+                        </div>
+                        <div id="ml-anomaly-indicator" class="ml-anomaly-clear">● NOMINAL</div>
+                        <div class="ml-chart-container"><canvas id="chart_ml_energy" class="ml-chart-canvas"></canvas>
+                            <div class="ml-chart-label">KE <span style="color:#ff8800">Dissip×10</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Convex Optimizer -->
+                    <div class="ml-section">
+                        <div class="ml-section-header">
+                            <span class="ml-icon">⊛</span>
+                            <span>SOCP CONVEX OPTIMIZER</span>
+                        </div>
+                        <div class="ml-data-grid">
+                            <div class="ml-data-item"><span class="ml-data-label">Opt T_L</span><span
+                                    class="ml-data-value" id="ml-opt-TL">0.0</span></div>
+                            <div class="ml-data-item"><span class="ml-data-label">Opt T_R</span><span
+                                    class="ml-data-value" id="ml-opt-TR">0.0</span></div>
+                            <div class="ml-data-item"><span class="ml-data-label">Gap</span><span class="ml-data-value"
+                                    id="ml-opt-gap">0 Nm</span></div>
+                            <div class="ml-data-item"><span class="ml-data-label">Pareto</span><span
+                                    class="ml-data-value" id="ml-pareto">—</span></div>
+                            <div class="ml-data-item"><span class="ml-data-label">Robustness</span><span
+                                    class="ml-data-value" id="ml-robustness">—</span></div>
+                        </div>
+                        <div class="ml-friction-circles">
+                            <div class="ml-friction-item">
+                                <span class="ml-bar-label">μ-Circle L</span>
+                                <div class="ml-bar-track">
+                                    <div class="ml-bar-fill ml-bar-safe" id="ml-fric-bar-L"></div>
+                                </div>
+                                <span class="ml-bar-value" id="ml-fric-L">—</span>
+                            </div>
+                            <div class="ml-friction-item">
+                                <span class="ml-bar-label">μ-Circle R</span>
+                                <div class="ml-bar-track">
+                                    <div class="ml-bar-fill ml-bar-safe" id="ml-fric-bar-R"></div>
+                                </div>
+                                <span class="ml-bar-value" id="ml-fric-R">—</span>
+                            </div>
+                        </div>
+                        <div class="ml-chart-container"><canvas id="chart_ml_friction" class="ml-chart-canvas"></canvas>
+                            <div class="ml-chart-label">Friction: <span style="color:#00ccff">L</span> <span
+                                    style="color:#ff00ff">R</span></div>
+                        </div>
+                    </div>
+
+                    <!-- ML Performance -->
+                    <div class="ml-perf-row">
+                        <span class="ml-perf-label">ML Compute</span>
+                        <span class="ml-perf-value" id="ml-compute-ms">— ms</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manifold Optimization Tab -->
+            <div id="tab-manifold" class="right-tab" style="display: none;">
+                <!-- Section 1: Manifold Properties (Stats) -->
+                <div class="ml-section">
+                    <div class="ml-section-header">
+                        <span class="ml-icon">🌌</span>
+                        <span>DIFFERENTIAL EQUATION MANIFOLD</span>
+                    </div>
+                    <div class="ml-data-grid" style="grid-template-columns: 1fr;">
+                        <div class="ml-data-item"><span class="ml-data-label">Divergence (∇·V)</span><span
+                                class="ml-data-value" id="mf-div">0.00</span></div>
+                        <div class="ml-data-item"><span class="ml-data-label">Curl (∇×V)</span><span
+                                class="ml-data-value" id="mf-curl">0.00</span></div>
+                        <div class="ml-data-item"><span class="ml-data-label">Jacobian Determinant</span><span
+                                class="ml-data-value" id="mf-det">0.00</span></div>
+                        <div class="ml-data-item"><span class="ml-data-label">Manifold Rank</span><span
+                                class="ml-data-value" id="mf-rank" style="color:#00ffcc">Optimal</span></div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Vector Field Visualization (Canvas) -->
+                <div class="ml-section" style="margin-top: 10px;">
+                    <div class="ml-section-header">
+                        <span class="ml-icon">↗</span>
+                        <span>PHASE SPACE VECTOR FIELD (e_γ vs ė_γ)</span>
+                    </div>
+                    <div class="manifold-container">
+                        <canvas id="manifold-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: PQC Security -->
+            <div id="tab-pqc" class="right-tab" style="display: none;">
+                <div id="pqc-dashboard"></div>
+            </div>
+
+        </div>
+
+        <!-- Bottom Bar -->
+        <div id="bottom-bar">
+            <!-- Environment Controls -->
+            <div id="environment-panel" class="panel">
+                <div class="section-title" style="margin-top:0;">Simulation Parameters</div>
+                <div class="control-group">
+                    <label>Payload Mass</label>
+                    <input type="range" id="param_mass" min="362" max="766" value="766">
+                    <span class="slider-value" id="val_mass_disp">766 kg</span>
+                </div>
+                <div class="control-group">
+                    <label>Road Gradient</label>
+                    <input type="range" id="param_grad" min="-15" max="15" value="0">
+                    <span class="slider-value" id="val_grad_disp">0°</span>
+                </div>
+                <div class="control-group">
+                    <label>Base Friction (μ)</label>
+                    <input type="range" id="param_mu" min="0.1" max="1.0" step="0.05" value="0.85">
+                    <span class="slider-value" id="val_mu_disp">0.85</span>
+                </div>
+                <div class="fault-buttons">
+                    <button id="btn_splitmu" class="env-btn">μ-Split (Mud)</button>
+                    <button id="btn_gradient" class="env-btn">Gradient Terrain</button>
+                    <button id="btn_wheelair" class="env-btn">One Wheel in Air</button>
+                    <button id="btn_steerfault" class="env-btn">Steer Sensor Fault</button>
+                    <button id="btn_motorfault" class="env-btn">Motor Malfunction (R)</button>
+                    <button id="btn_asymslope" class="env-btn">Asymmetric Slope</button>
+                    <button id="btn_reset" class="env-btn" style="grid-column: 1 / -1;">Reset Vehicle</button>
+                </div>
+            </div>
+
+            <!-- Controls Hint -->
+            <div id="controls-hint" onclick="window.focus()">
+                <div><span class="key">W</span> <span class="key">S</span> Accel / Brake</div>
+                <div><span class="key">A</span> <span class="key">D</span> Steer</div>
+                <div style="color:var(--cyan);">PHYSICS @ 100Hz &middot; RENDER @ 60FPS</div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Three.js via CDN -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module" src="js/app.js?v=2"></script>
+</body>
+
+</html>

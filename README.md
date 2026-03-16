@@ -114,7 +114,8 @@ These parameters account for the "worst-case" scenario: a fully loaded vehicle o
 | Peak Transient Torque per Motor | $T_{peak}$ | 80 | $Nm$ |
 | Maximum Powertrain Voltage | $V_{bus}$ | 48 - 60 | $V$ |
 
-> **Note:** The distance from the center of gravity to the respective axles ($l_f$ and $l_r$) is highly variable in commercial applications. The VCU control logic must maintain stability bounds despite these parametric uncertainties, necessitating adaptive and robust control laws.
+> [!NOTE]
+> The distance from the center of gravity to the respective axles ($l_f$ and $l_r$) is highly variable in commercial applications. The VCU control logic must maintain stability bounds despite these parametric uncertainties, necessitating adaptive and robust control laws.
 
 ---
 
@@ -236,7 +237,7 @@ $$
 $$
 
 $$
-\gamma_{ref} = \operatorname{sign}(\delta) \cdot \min(|\gamma_{kinematic}|, |\gamma_{limit}|)
+\gamma_{ref} = \text{sgn}(\delta) \cdot \min(|\gamma_{kinematic}|, |\gamma_{limit}|)
 $$
 
 ### Adaptive Sliding Mode Control (ASMC)
@@ -247,13 +248,13 @@ S = c \cdot e_\gamma + \dot{e}_\gamma
 $$
 
 $$
-\dot{S} = -k_1 S - k_2 \operatorname{sat}\left(\frac{S}{\Phi}\right)
+\dot{S} = -k_1 S - k_2 \text{sat}\left(\frac{S}{\Phi}\right)
 $$
 
 Substituting the 3-DOF yaw dynamics yields the final stabilizing command effort:
 
 $$
-\Delta M_{z,req} = I_z \dot{\gamma}_{ref} - c\dot{e}_\gamma - k_1 S - k_2 \operatorname{sat}\left(\frac{S}{\Phi}\right) - l_f F_{yf} \cos \delta + l_r (F_{yL} + F_{yR})
+\Delta M_{z,req} = I_z \dot{\gamma}_{ref} - c\dot{e}_\gamma - k_1 S - k_2 \text{sat}\left(\frac{S}{\Phi}\right) - l_f F_{yf} \cos \delta + l_r (F_{yL} + F_{yR})
 $$
 
 ---
@@ -355,7 +356,8 @@ Located entirely in `frontend/`, this provides a browser-based, high-performance
 
 ## 13. ISO 26262 Functional Safety & Degraded Modes
 
-Software failures in a 766kg vehicle at 60 km/h are fatal. The architecture enforces an ASIL-D state-machine layer dictating failsafe fallback logic:
+> [!WARNING]
+> Software failures in a 766kg vehicle at 60 km/h are fatal. The architecture enforces an ASIL-D state-machine layer dictating failsafe fallback logic:
 
 ```mermaid
 stateDiagram-v2
@@ -429,5 +431,6 @@ By substituting a mechanical rigid axle with software-defined Independent Rear H
 
 Deploying an Extended Kalman Filter allows the VCU to bypass the need for exorbitant optical slip sensors, accurately maintaining a dynamic fingerprint of the vehicle's unmeasurable parameters. Feeding this directly into an advanced Quadratic Programming (and Convex Optimized) torque allocator forces the drivetrain to prioritize safety over raw acceleration—permanently eliminating torque-steer and $\mu$-split spinouts. 
 
-Crucially, the delta-trike's inherent geometric vulnerability to high-speed rollover is wholly neutralized via continuous real-time mathematical safety overrides. Fused with rigorous modern Post-Quantum Cryptographic telemetry pipelines and Deep Learning Advisory monitors, this architecture represents the zenith of fail-operational, hyper-stable, and efficient active control for next-generation electric mobility.
+> [!IMPORTANT]
+> Crucially, the delta-trike's inherent geometric vulnerability to high-speed rollover is wholly neutralized via continuous real-time mathematical safety overrides. Fused with rigorous modern Post-Quantum Cryptographic telemetry pipelines and Deep Learning Advisory monitors, this architecture represents the zenith of fail-operational, hyper-stable, and efficient active control for next-generation electric mobility.
 

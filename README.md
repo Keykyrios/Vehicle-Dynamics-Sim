@@ -1,12 +1,12 @@
 <div align="center">
-  <h1>🚀 NEXUS L5 - ADVANCED 3D VEHICLE DYNAMICS SIMULATION 🚀</h1>
+  <h1>NEXUS L5 - ADVANCED 3D VEHICLE DYNAMICS SIMULATION</h1>
   <p><strong>A Next-Generation Commercial Electric Three-Wheeler Simulation Platform</strong></p>
   <p><em>Fusing Non-Linear Physics, Machine Learning, Post-Quantum Cryptography, and Advanced Control Theory</em></p>
 </div>
 
 ---
 
-## 📑 Detailed Table of Contents
+## Detailed Table of Contents
 
 1. [Executive Summary & Architectural Rationale](#1-executive-summary--architectural-rationale)
 2. [Repository Structure & File Manifest](#2-repository-structure--file-manifest)
@@ -36,30 +36,15 @@ The transition to **Independent Rear Wheel Drive (IRWD)** utilizing dual hub mot
 
 To address these vulnerabilities, the **Vehicle Control Unit (VCU)** must assume the role of an "electronic differential," expanding its operational scope from basic powertrain management to the active, high-frequency regulation of vehicle stability. This deep-level evaluation and software simulation formulates a comprehensive, physics-based control architecture that empowers the VCU to generate stabilizing yaw moments through differential motor torque—a methodology known as **Active Torque Vectoring (ATV)**.
 
-```text
-       ┌───────────────┐
-       │ Driver Inputs │
-       └───────┬───────┘
-               │
-               ▼
-   ┌───────────────────────┐
-   │ Vehicle Control Unit  │◀─────────┐
-   └─────┬───────────┬─────┘          │
-         │           │                │
-         ▼           ▼                │
-   ┌─────────┐   ┌─────────┐          │
-   │L-Motor  │   │R-Motor  │          │
-   └─────────┘   └─────────┘          │
-         │           │                │
-         ▼           ▼                │
-   ┌───────────────────────┐          │
-   │ 3-DOF Vehicle Dynamics│          │
-   └───────────┬───────────┘          │
-               │                      │
-               ▼                      │
-   ┌───────────────────────┐          │
-   │ Sensors & Estimators  │──────────┘
-   └───────────────────────┘
+```mermaid
+graph TD
+    A[Driver Inputs] --> B(Vehicle Control Unit)
+    B --> C(Left Hub Motor)
+    B --> D(Right Hub Motor)
+    C --> E[3-DOF Vehicle Dynamics]
+    D --> E
+    E --> F[Sensors / State Estimators]
+    F -->|Feedback Loop| B
 ```
 
 This repository explicitly details a hierarchical control topology encompassing a 3-Degree-of-Freedom (3-DOF) dynamic plant model, an Extended Kalman Filter (EKF) for non-linear state estimation, an Adaptive Sliding Mode Controller (ASMC) for robust direct yaw-moment regulation, and a constrained Quadratic Programming (QP) algorithm for optimal torque allocation. Furthermore, it integrates a Machine Learning Supervisor for advisory metrics, Post-Quantum Cryptography for secure telemetry, and an ISO 26262-compliant degraded-mode strategy that guarantees functional safety.
@@ -174,37 +159,30 @@ $$ F_{y,i} = \mu F_{z,i} D \sin \left( C \arctan \left( B\alpha_i - E(B\alpha_i 
 
 To tame the mathematical complexity of non-linear state estimation, torque limit handling, and multi-objective optimization, the VCU software is engineered using a strict, multi-layered hierarchical architecture located in `backend/physics/vcu.py`.
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                       DRIVER INPUT                          │
-│  Steering (δ)                             Throttle (θ_th)   │
-└──────┬────────────────────────────────────────────┬─────────┘
-       │                                            │
-       ▼                                            ▼
-┌──────────────┐                             ┌──────────────┐
-│  Reference   │◀───────┐                    │    Demand    │
-│  Generation  │        │                    │  Generation  │
-│ (γ_ref, β_ref)        │                    │   (T_req)    │
-└──────┬───────┘        │                    └──────┬───────┘
-       │                │                           │
-       │ (e_γ)          │                           │
-       ▼                │                           │
-┌──────────────┐        │                    ┌──────▼───────┐
-│ ASMC Control │        │       ┌───────────▶│ QP Allocator │
-│ (ΔM_z,req)   │        │       │            │ (min J_slip) │
-└──────┬───────┘        │       │            └──────┬───────┘
-       │                │       │                   │
-       └────────────────┼───────┘                   │ (T_L, T_R)
-                        │                           ▼
-┌──────────────┐        │                 ┌─────────────────┐
-│ Rollover Prev│────────┤                 │   Delta-Trike   │
-│ (RI limits)  │        │                 │   Hub Motors    │
-└──────────────┘        │                 └─────────────────┘
-                        │                           │
-┌──────────────┐        │                           │
-│ EKF Observer │────────┘                           │
-│ (β̂, v̂_y, μ̂)  │◀───────────────────────────────────┘
-└──────────────┘           (IMU/Encoders: a_y, γ)
+```mermaid
+graph TD
+    UI[Driver Inputs: δ, θth] -->|θth| TReq(Demand Generation)
+    UI -->|δ| Ref(Reference Model)
+    
+    subgraph VCU [Vehicle Control Unit Architecture]
+        EKF((EKF Observer)) -->|μ_est, β_est| Ref
+        Ref -->|γ_ref| ASMC(ASMC Yaw Control)
+        
+        EKF -->|μ_est, β_est| ASMC
+        EKF -->|μ_est| QP(QP Torque Allocator)
+        
+        TReq -->|T_req| QP
+        ASMC -->|ΔMz_req| QP
+        
+        Safe(Rollover Prevention) -.->|RI Limit Override| QP
+        Safe -.->|Counter-Yaw Injection| ASMC
+    end
+    
+    QP -->|T_L| LHM[Left Hub Motor]
+    QP -->|T_R| RHM[Right Hub Motor]
+    LHM --> Plant[3-DOF Vehicle Dynamics Plant]
+    RHM --> Plant
+    Plant -->|a_y, γ| EKF
 ```
 
 ### Module Breakdown
@@ -274,28 +252,21 @@ The weighting parameter $W \in [0, 1]$ modulates dynamically. On tight corners w
 
 While the VCU runs the high-speed, physics-bound deterministic control logic, the `MLSupervisor` operates as a higher-order advisory matrix.
 
-```text
-                  ┌──────────────────────┐
-                  │ Vehicle Physics State│
-                  │   (v_x, v_y, γ, a_y) │
-                  └──────────┬───────────┘
-                             ▼
-                  ┌──────────────────────┐
-                  │    ML SUPERVISOR     │
-                  └──────────┬───────────┘
-         ┌───────────────────┼───────────────────┐
-         ▼                   ▼                   ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│  Lyapunov NN    │ │ Hamiltonian NN  │ │ Convex Torque   │
-│   (Stability)   │ │    (Energy)     │ │   Optimizer     │
-└────────┬────────┘ └────────┬────────┘ └────────┬────────┘
-         │ (RoA)             │ (η)               │ (Pareto)
-         └───────────────────┼───────────────────┘
-                             ▼
-                  ┌──────────────────────┐
-                  │ Web Dashboard / 3D UI│
-                  │  (Telemetry JSON)    │
-                  └──────────────────────┘
+```mermaid
+graph TD
+    State[Vehicle Physics State: vx, vy, γ, ay] --> ML{ML Supervisor}
+    
+    subgraph Intelligence Subsystems
+        ML --> LNN(Lyapunov NN Certifier)
+        ML --> HNN(Hamiltonian NN Energy)
+        ML --> SOCP(Convex Torque Optimizer)
+    end
+    
+    LNN -->|basin of attraction estimates| T(Telemetry JSON)
+    HNN -->|thermal loss, efficiency η| T
+    SOCP -->|pareto-optimality friction| T
+    
+    T --> Web[Web Dashboard / 3D UI]
 ```
 
 ### 10.1 Lyapunov Neural Network (Stability Certifier)
@@ -313,23 +284,23 @@ Uses custom primal-dual interior-point methods to solve the true underlying Seco
 
 Since commercial transport telemetry dictates immense physical liabilities, our simulation secures the real-time websocket using NIST's finalized post-quantum standards.
 
-```text
-  [Web Client (Browser)]                        [FastAPI Server]
-            │                                           │
-            │                                    [1. Gen ML-KEM Keypair]
-            │ <────── 2. Send Public Key (ek) ───────── │
- [3. Encapsulate]                                       │
-            │ ─────── 4. Return Ciphertext ───────────> │
-            │                                    [5. Decapsulate Secret]
-            │                                           │
-            ├───────────────────────────────────────────┤
-            │    ✓ AES-256-GCM Channel Established      │
-            ├───────────────────────────────────────────┤
-            │                                           │
-            │ ═══ [Encrypted] Steering/Throttle ══════> │
-            │                                           │
-            │ <══ [Encrypted] Physics Telemetry (100Hz) ═ │
-            │                                           │
+```mermaid
+sequenceDiagram
+    participant C as Web Client (Browser)
+    participant S as FastAPI Server (Physics Engine)
+    
+    Note over S: 1. Generate ML-KEM-768 Keypair
+    S->>C: Send Public Encapsulation Key (ek)
+    Note over C: 2. Perform Encapsulation
+    C->>S: Return Ciphertext
+    Note over S: 3. Decapsulate Shared Secret
+    
+    Note over C,S: AES-256-GCM Secure Channel Established
+    
+    loop Every 10ms (100Hz)
+        C->>S: [Encrypted] Steering & Throttle Inputs
+        S->>C: [Encrypted] 3-DOF Physics Telemetry & ML Stats
+    end
 ```
 
 ---
@@ -344,25 +315,24 @@ Located entirely in `frontend/`, this provides a browser-based, high-performance
 
 Software failures in a 766kg vehicle at 60 km/h are fatal. The architecture enforces an ASIL-D state-machine layer dictating failsafe fallback logic:
 
-```text
- ┌────────────────────────────────────────────────────────┐
- │                  STATE 0: NOMINAL                      │
- └──────┬──────────────────────┬───────────────────┬──────┘
-        │                      │                   │
-  [IMU Corrupted]        [Steer Encoder]       [Inverter]
-  [ Data fault  ]        [     Died    ]       [Failure ]
-        │                      │                   │
-        ▼                      ▼                   ▼
- ┌──────────────┐       ┌──────────────┐    ┌──────────────┐
- │   STATE 1    │       │   STATE 3    │    │   STATE 4    │
- │  IMU FAULT   │       │ STEER FAULT  │    │ MOTOR FAULT  │
- └──────┬───────┘       └──────┬───────┘    └──────┬───────┘
-        │                      │                   │
- • Kinematic E-Diff     • Virtual Open Diff  • Healthy Motor Zeroed
- • Speed Capped 25kph   • Symmetric T_L=T_R  • Mech Brakes Only
-        │                      │                   │
-        ▼                      ▼                   ▼
- [ SAFE LIMP-HOME ]    [ PULL TO ROAD SIDE]  [ EMERGENCY STOP ]
+```mermaid
+stateDiagram-v2
+    [*] --> State0_Nominal : Initialization
+    State0_Nominal --> State1_IMU_Fault : Lateral/Yaw Data Corrupted
+    State1_IMU_Fault --> State0_Nominal : Sensor Recovered
+    
+    State0_Nominal --> State3_Steer_Fault : Steering Encoder Died
+    
+    State0_Nominal --> State4_Motor_Fault : Inverter Failure
+    
+    State1_IMU_Fault : Kinematic Electronic Differential
+    State1_IMU_Fault : Speed Capped @ 25 km/h
+    
+    State3_Steer_Fault : Virtual Open Differential (TL = TR)
+    State3_Steer_Fault : Force Symmetric Pull to Side of Road
+    
+    State4_Motor_Fault : Healthy Motor Zeroed (0 Nm)
+    State4_Motor_Fault : Apply Mechanical Foundation Brakes Only
 ```
 
 ---
